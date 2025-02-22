@@ -1,11 +1,26 @@
 import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { admin, db } from './db/firebase.js';
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import authenticateUser from './middleware/authMiddleware.js'; // Moved middleware to a separate file
+
+dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
+// Middleware
+app.use(express.json()); // To parse JSON bodies
 app.use(express.urlencoded({ extended: true }));
+app.use(cors()); // Allow Cross-Origin Requests
 
+// Routes
+app.use('/auth', authRoutes); // Authentication Routes
+app.use('/users', authenticateUser, userRoutes); // Protected User Routes
+
+// Start Server
 app.listen(PORT, () => {
-  console.log(`Server is running on PORT ${PORT}`);
+    console.log(`🚀 Server is running on PORT ${PORT}`);
 });
-
