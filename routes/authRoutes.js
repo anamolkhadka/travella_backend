@@ -74,7 +74,7 @@ router.post("/login", async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRES_IN || "1h" } // Default to 1 hour
         );
 
-        res.json({ message: "Login successful", token });
+        res.json({ message: "Login successful", token, userId });
     } catch (error) {
         console.error("Error logging in:", error);
         res.status(500).json({ error: "Internal server error" });
