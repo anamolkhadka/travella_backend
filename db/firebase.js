@@ -13,4 +13,14 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-export { admin, db };
+// Define the schema for the itinerary collection
+const itinerarySchema = {
+  userId: "",         // User ID
+  destination: "",    // Travel destination
+  startDate: "",      // Start date of trip
+  endDate: "",        // End date of trip
+  preferences: {},    // User-selected preferences
+  activities: []      // User provided or AI-generated activities
+};
+
+export { admin, db, itinerarySchema };

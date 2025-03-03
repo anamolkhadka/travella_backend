@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { admin, db } from './db/firebase.js';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import itineraryRoutes from './routes/itineraryRoutes.js';
 import authenticateUser from './middleware/authMiddleware.js'; // Moved middleware to a separate file
 
 dotenv.config();
@@ -19,6 +20,7 @@ app.use(cors()); // Allow Cross-Origin Requests
 // Routes
 app.use('/auth', authRoutes); // Authentication Routes
 app.use('/users', authenticateUser, userRoutes); // Protected User Routes
+app.use('/itinerary', authenticateUser, itineraryRoutes); // Protected Itinerary Routes
 
 // Start Server
 app.listen(PORT, () => {
