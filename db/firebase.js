@@ -19,8 +19,11 @@ const itinerarySchema = {
   destination: "",    // Travel destination
   startDate: "",      // Start date of trip
   endDate: "",        // End date of trip
-  preferences: {},    // User-selected preferences
-  activities: []      // User provided or AI-generated activities
+  preferences: {       // User-defined preferences
+    style: "",       // Travel style (adventure, relaxation, culture, etc.)
+    budget: ""       // Budget level (low, medium, high)
+  },
+  activities: []      // User provided or AI-generated activities. JSON object.
 };
 
 export { admin, db, itinerarySchema };

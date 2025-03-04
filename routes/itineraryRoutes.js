@@ -1,25 +1,28 @@
 import express from "express";
 import { db, itinerarySchema } from "../db/firebase.js";
+import { generateAIItinerary } from "./aiGenerator.js";
 
 const router = express.Router();
 
 // Create a new itinerary
 router.post("/create", async (req, res) => {
     try {
-        // Extract itinerary data from request body
-        const itineraryData = req.body;
+        const { userId, destination, startDate, endDate, preferences, activities = [] } = req.body;
 
-        // Validate required fields using itinerarySchema
-        const newItinerary = { ...itinerarySchema, ...itineraryData };
-
-        // Ensure required fields are not empty
-        if (!newItinerary.userId || !newItinerary.destination || !newItinerary.startDate || !newItinerary.endDate) {
+        if (!userId || !destination || !startDate || !endDate) {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        // Store the new itinerary in Firestore
-        const itineraryRef = await db.collection("itineraries").add(newItinerary);
+        const newItinerary = {
+            userId,
+            destination,
+            startDate,
+            endDate,
+            preferences,
+            activities
+        };
 
+        const itineraryRef = await db.collection("itineraries").add(newItinerary);
         res.status(201).json({ message: "Itinerary created", id: itineraryRef.id });
     } catch (error) {
         res.status(500).json({ error: "Error creating itinerary" });
@@ -72,6 +75,37 @@ router.delete("/delete/:id", async (req, res) => {
         res.status(200).json({ message: "Itinerary deleted" });
     } catch (error) {
         res.status(500).json({ error: "Error deleting itinerary" });
+    }
+});
+
+// AI-Generated Itinerary
+router.post("/generate", async (req, res) => {
+    try {
+        const { userId, destination, startDate, endDate, preferences } = req.body;
+
+        if (!userId || !destination || !startDate || !endDate) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        // Generate itinerary using AI
+        const aiGeneratedActivities = await generateAIItinerary(preferences, destination, startDate, endDate);
+
+        // Create the itinerary object
+        const newItinerary = {
+            userId,
+            destination,
+            startDate,
+            endDate,
+            preferences,
+            activities: aiGeneratedActivities
+        };
+
+        // Save itinerary to Firestore
+        const itineraryRef = await db.collection("itineraries").add(newItinerary);
+
+        res.status(201).json({ message: "AI-generated itinerary created", id: itineraryRef.id, activities: aiGeneratedActivities });
+    } catch (error) {
+        res.status(500).json({ error: "Error generating itinerary" });
     }
 });
 
