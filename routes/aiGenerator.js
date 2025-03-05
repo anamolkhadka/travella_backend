@@ -41,7 +41,8 @@ export const generateAIItinerary = async (preferences, destination, startDate, e
                             }
                         }
                         **Do not include any explanation** before or after the JSON.
-                        **Make sure all brackets are closed and the response fits within ${300 - 50} tokens.**`
+                        🚨 **Important Instruction:** 🚨
+                        **If the response exceeds ${300} tokens, remove the last day(s) instead of truncating the JSON mid-way. Ensure all brackets are properly closed.**`
                     }
                 ],
                 temperature: 0.7,
@@ -56,17 +57,12 @@ export const generateAIItinerary = async (preferences, destination, startDate, e
             }
         );
 
-        // Extract AI response (Since `response_format` is JSON, the response should be parsed automatically)
-        console.log(response.data.choices[0]?.message?.content);
-        // Print the type of the response
-        console.log(typeof response.data.choices[0]?.message?.content);
-       
-        // Fix truncated JSON if necessary
-        let rawText = response.data.choices[0]?.message?.content;
-        const fixedJson = fixTruncatedJSON(rawText);
-        console.log(fixedJson);
+        // Extract AI response (which should be valid JSON)
+        const itineraryData = response.data.choices[0]?.message?.content;
+        console.log(itineraryData);
 
-        return fixedJson.itinerary?.activities || [];
+        // Convert JSON string to JavaScript object
+        return JSON.parse(itineraryData)?.itinerary?.activities || [];
 
     } catch (error) {
         console.error("AI Generation Error:", error.response?.data || error.message);
@@ -74,42 +70,42 @@ export const generateAIItinerary = async (preferences, destination, startDate, e
     }
 };
 
-// Fix truncated JSON by trimming and closing brackets.
-const fixTruncatedJSON = (jsonString) => {
-    try {
-        return JSON.parse(jsonString); // Try parsing normally
-    } catch (error) {
-        console.warn("⚠️ Truncated JSON detected. Attempting to fix...");
+// // Fix truncated JSON by trimming and closing brackets.
+// const fixTruncatedJSON = (jsonString) => {
+//     try {
+//         return JSON.parse(jsonString); // Try parsing normally
+//     } catch (error) {
+//         console.warn("⚠️ Truncated JSON detected. Attempting to fix...");
 
-        let fixedJson = jsonString.trim();
+//         let fixedJson = jsonString.trim();
 
-        // Find the last valid bracket
-        let lastCurlyBracket = fixedJson.lastIndexOf("}");
-        let lastSquareBracket = fixedJson.lastIndexOf("]");
+//         // Find the last valid bracket
+//         let lastCurlyBracket = fixedJson.lastIndexOf("}");
+//         let lastSquareBracket = fixedJson.lastIndexOf("]");
         
-        // Pick the last valid position
-        let lastValidIndex = Math.max(lastCurlyBracket, lastSquareBracket);
-        if (lastValidIndex === -1) {
-            console.error("❌ JSON is too corrupted to fix.");
-            return { itinerary: { activities: [] } }; // Return empty itinerary
-        }
+//         // Pick the last valid position
+//         let lastValidIndex = Math.max(lastCurlyBracket, lastSquareBracket);
+//         if (lastValidIndex === -1) {
+//             console.error("❌ JSON is too corrupted to fix.");
+//             return { itinerary: { activities: [] } }; // Return empty itinerary
+//         }
 
-        // Trim everything after the last valid bracket
-        fixedJson = fixedJson.substring(0, lastValidIndex + 1);
+//         // Trim everything after the last valid bracket
+//         fixedJson = fixedJson.substring(0, lastValidIndex + 1);
 
-        // Ensure proper closure
-        if (fixedJson.endsWith(",")) {
-            fixedJson = fixedJson.slice(0, -1); // Remove trailing comma
-        }
-        if (!fixedJson.endsWith("}")) {
-            fixedJson += "}";
-        }
+//         // Ensure proper closure
+//         if (fixedJson.endsWith(",")) {
+//             fixedJson = fixedJson.slice(0, -1); // Remove trailing comma
+//         }
+//         if (!fixedJson.endsWith("}")) {
+//             fixedJson += "}";
+//         }
 
-        try {
-            return JSON.parse(fixedJson);
-        } catch (e) {
-            console.error("❌ Final Fix Failed:", e.message);
-            return { itinerary: { activities: [] } };
-        }
-    }
-};
+//         try {
+//             return JSON.parse(fixedJson);
+//         } catch (e) {
+//             console.error("❌ Final Fix Failed:", e.message);
+//             return { itinerary: { activities: [] } };
+//         }
+//     }
+// };
