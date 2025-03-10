@@ -61,8 +61,17 @@ export const generateAIItinerary = async (preferences, destination, startDate, e
         const itineraryData = response.data.choices[0]?.message?.content;
         console.log(itineraryData);
 
-        // Convert JSON string to JavaScript object
-        return JSON.parse(itineraryData)?.itinerary?.activities || [];
+        // Handle JSON parsing errors and response truncation.
+        const parsedData = handleResponse(itineraryData);
+        console.log(parsedData);
+        
+        if (parsedData) {
+            console.log("Parsed JSON:", parsedData);
+            return parsedData.itinerary.activities;
+        } else {
+            console.log("Failed to parse the response.");
+            return [];
+        }
 
     } catch (error) {
         console.error("AI Generation Error:", error.response?.data || error.message);
@@ -71,41 +80,27 @@ export const generateAIItinerary = async (preferences, destination, startDate, e
 };
 
 // // Fix truncated JSON by trimming and closing brackets.
-// const fixTruncatedJSON = (jsonString) => {
-//     try {
-//         return JSON.parse(jsonString); // Try parsing normally
-//     } catch (error) {
-//         console.warn("⚠️ Truncated JSON detected. Attempting to fix...");
-
-//         let fixedJson = jsonString.trim();
-
-//         // Find the last valid bracket
-//         let lastCurlyBracket = fixedJson.lastIndexOf("}");
-//         let lastSquareBracket = fixedJson.lastIndexOf("]");
-        
-//         // Pick the last valid position
-//         let lastValidIndex = Math.max(lastCurlyBracket, lastSquareBracket);
-//         if (lastValidIndex === -1) {
-//             console.error("❌ JSON is too corrupted to fix.");
-//             return { itinerary: { activities: [] } }; // Return empty itinerary
-//         }
-
-//         // Trim everything after the last valid bracket
-//         fixedJson = fixedJson.substring(0, lastValidIndex + 1);
-
-//         // Ensure proper closure
-//         if (fixedJson.endsWith(",")) {
-//             fixedJson = fixedJson.slice(0, -1); // Remove trailing comma
-//         }
-//         if (!fixedJson.endsWith("}")) {
-//             fixedJson += "}";
-//         }
-
-//         try {
-//             return JSON.parse(fixedJson);
-//         } catch (e) {
-//             console.error("❌ Final Fix Failed:", e.message);
-//             return { itinerary: { activities: [] } };
-//         }
-//     }
-// };
+function handleResponse(response) {
+    // Check if the response is a valid JSON structure
+    try {
+        const data = JSON.parse(response);
+        return data;
+    } catch (error) {
+        // Attempt to fix the truncated JSON
+        const lastCommaIndex = response.lastIndexOf(",");
+        if (lastCommaIndex !== -1) {
+            response = response.substring(0, lastCommaIndex); // Remove the last incomplete object
+            response += "}]}}"; // Close the JSON structure
+            try {
+                const data = JSON.parse(response);
+                return data;
+            } catch (error) {
+                console.error("Failed to parse truncated JSON.");
+                return null;
+            }
+        } else {
+            console.error("Failed to parse truncated JSON.");
+            return null;
+        }
+    }
+}
