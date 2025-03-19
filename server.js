@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import itineraryRoutes from './routes/itineraryRoutes.js';
 import authenticateUser from './middleware/authMiddleware.js'; // Moved middleware to a separate file
+import travelUpdatesRoutes from './routes/travelUpdatesRoutes.js';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(cors()); // Allow Cross-Origin Requests
 app.use('/auth', authRoutes); // Authentication Routes
 app.use('/users', authenticateUser, userRoutes); // Protected User Routes
 app.use('/itinerary', authenticateUser, itineraryRoutes); // Protected Itinerary Routes
+app.use('/travel-updates', travelUpdatesRoutes); // Travel Updates Routes
 
 // Start Server
 app.listen(PORT, () => {
