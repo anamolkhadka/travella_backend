@@ -1,4 +1,4 @@
-How to run the server with manual Flight alert implementation ?
+How to run the server ?
 - npm run start
 
 
@@ -16,5 +16,3 @@ To End the tunnel
 
 To track the incoming requests in the web dashboard.
 - http://localhost:4040/inspect/http
-
-FlightAware locks alerts behind their $100/month Standard Tier or Premium Tier.
