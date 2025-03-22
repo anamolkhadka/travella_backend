@@ -7,14 +7,15 @@ dotenv.config();
 // External FlightAware API service.
 const FLIGHTAWARE_API_KEY = process.env.FLIGHT_API_KEY;
 const FLIGHTAWARE_URL = process.env.FLIGHT_API_URL;
+const webhookUrl = `${process.env.BACKEND_URL}/flight-alerts/webhook`; // e.g., https://yourdomain.com/flight-alerts/webhook. This is secure Public URL created from Ngrok.
 
 const router = express.Router();
 
 // POST /api/flight-alerts/create: Create a new flight alert
 router.post('/create', async (req, res) => {
-    const { ident, origin, destination, start, end, target_url } = req.body;
+    const { ident, origin, destination, start, end, userId } = req.body;
 
-    if (!ident || !start || !end || !target_url) {
+    if (!ident || !start || !end || !origin || !destination || !userId) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -28,14 +29,14 @@ router.post('/create', async (req, res) => {
                 start,
                 end,
                 events: {
-                arrival: true,
-                departure: true,
-                cancelled: true,
-                diverted: true,
+                    arrival: true,
+                    departure: true,
+                    cancelled: true,
+                    diverted: true,
                 },
                 impending_arrival: [15],
                 impending_departure: [15],
-                target_url,
+                target_url: webhookUrl,
             },
             {
                 headers: {
@@ -66,7 +67,7 @@ router.post('/create', async (req, res) => {
     }
 });
 
-// POST /api/flight-alerts/webhook: Webhook to receive alert updates from FlightAware
+// POST /flight-alerts/webhook: Webhook to receive alert updates from FlightAware
 router.post('/webhook', async (req, res) => {
     try {
         const alertData = req.body;

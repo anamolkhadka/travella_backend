@@ -24,7 +24,7 @@ app.use('/auth', authRoutes); // Authentication Routes
 app.use('/users', authenticateUser, userRoutes); // Protected User Routes
 app.use('/itinerary', authenticateUser, itineraryRoutes); // Protected Itinerary Routes
 app.use('/travel-updates', travelUpdatesRoutes); // Travel and weather Updates Routes
-app.use('/flight-alerts', authenticateUser, flightAlertRoutes); // Flight Alert Routes
+///app.use('/flight-alerts', authenticateUser, flightAlertRoutes); // Flight Alert Routes. Implemented but not used in the project because of the FlightAware API limitations.
 
 // Start Server
 app.listen(PORT, () => {
