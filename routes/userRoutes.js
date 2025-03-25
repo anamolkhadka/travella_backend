@@ -3,6 +3,7 @@ import { db } from '../db/firebase.js';
 
 const router = express.Router();
 
+
 // Get User Data (Protected Route)
 router.get('/:id', async (req, res) => {
     try {

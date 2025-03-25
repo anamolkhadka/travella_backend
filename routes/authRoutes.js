@@ -53,7 +53,7 @@ router.post("/login", async (req, res) => {
         const snapshot = await usersRef.get();
 
         if (snapshot.empty) {
-            return res.status(401).json({ error: "Invalid credentials" });
+           return res.status(401).json({ error: "Invalid credentials" });
         }
 
         // Get user data
@@ -64,7 +64,7 @@ router.post("/login", async (req, res) => {
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, userData.password);
         if (!isPasswordValid) {
-            return res.status(401).json({ error: "Invalid credentials" });
+           return res.status(401).json({ error: "Invalid credentials" });
         }
 
         // Generate JWT token
