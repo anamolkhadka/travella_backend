@@ -10,6 +10,10 @@ import Amadeus from "amadeus";
 dotenv.config(); // Load environment variables
 
 const router = express.Router();
+
+// Note the flights origin and destination are IATA codes.
+// Example: "LAX" for Los Angeles International Airport, "JFK" for John F. Kennedy International Airport
+// Link: http://www.iata.org/publications/Pages/code-search.aspx
 router.get("/flights/search", async (req, res) => {
     try {
         const { origin, destination, departureDate, adults } = req.query;
