@@ -21,6 +21,8 @@ router.get('/:id', async (req, res) => {
         res.status(200).json({
             id: userId,
             email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
             location: userData.location,
         });
     } catch (error) {
