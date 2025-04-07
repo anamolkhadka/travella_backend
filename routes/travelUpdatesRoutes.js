@@ -40,6 +40,8 @@ router.post("/weather", async (req, res) => {
 
 // POST route to get flight updates based on flight number, date, from, and to locations.
 // The route will return all flights that match the given flight number, date, from, and to locations.
+// API limitations: The FlightAware API has a time limit of 10 days for the flight history and 2 days for the future flights.
+// Follow IATA rules for the flight number format and the location codes.
 router.post('/flight', async (req, res) => {
     const { flightNumber, date, from, to } = req.body;
 
