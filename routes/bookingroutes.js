@@ -1,16 +1,16 @@
 import pkg from "flights";
-const { searchFlights } = pkg; // Importing from the flights package using CommonJS compatibility
-
+const { searchFlights } = pkg;
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import { db } from "../db/firebase.js";
 import Amadeus from "amadeus";
 
-dotenv.config(); // Load environment variables
-
+dotenv.config();
 const router = express.Router();
+///const BOOKING_API_HOST = "booking-com15.p.rapidapi.com";
 
+// This endpoint is used to search for flights based on the provided parameters
 // Note the flights origin and destination are IATA codes.
 // Example: "LAX" for Los Angeles International Airport, "JFK" for John F. Kennedy International Airport
 // Link: http://www.iata.org/publications/Pages/code-search.aspx
@@ -22,7 +22,6 @@ router.get("/flights/search", async (req, res) => {
             return res.status(400).json({ error: "Missing required query parameters" });
         }
 
-        // Initialize Amadeus API
         const amadeus = new Amadeus({
             clientId: process.env.AMADEUS_CLIENT_ID,
             clientSecret: process.env.AMADEUS_CLIENT_SECRET,
@@ -35,20 +34,36 @@ router.get("/flights/search", async (req, res) => {
             adults,
         });
 
-        console.log("✅ Amadeus API Response:", response.result); // Log the full response
-
         if (!response.result || !response.result.data) {
             return res.status(500).json({ error: "Invalid response from Amadeus API" });
         }
+
+        // Process flight offers to include formatted flight numbers
+        const processedData = response.result.data.map(offer => {
+            const itineraries = offer.itineraries.map(itinerary => {
+                const segments = itinerary.segments.map(segment => ({
+                    ...segment,
+                    flightNumber: `${segment.carrierCode} ${segment.number}`, // Add formatted flight number
+                }));
+                return {
+                    ...itinerary,
+                    segments,
+                };
+            });
+            return {
+                ...offer,
+                itineraries,
+            };
+        });
 
         res.status(200).json({
             pagination: {
                 limit: 100,
                 offset: 0,
-                count: response.result.data.length,
-                total: response.result.meta?.count || 0, // Ensure 'count' exists
+                count: processedData.length,
+                total: response.result.meta?.count || 0,
             },
-            data: response.result.data,
+            data: processedData,
         });
 
     } catch (error) {
@@ -57,6 +72,7 @@ router.get("/flights/search", async (req, res) => {
     }
 });
 
+// This endpoint is used to book a flight based on the provided parameters.
 router.post("/flights/book", async (req, res) => {
     try {
         const { email, selectedFlight, passengerDetails } = req.body;
@@ -65,26 +81,21 @@ router.post("/flights/book", async (req, res) => {
             return res.status(400).json({ error: "Missing required booking details" });
         }
 
-        // 🔍 Lookup user by email in Firebase
         const userSnapshot = await db.collection("users").where("email", "==", email).get();
         if (userSnapshot.empty) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        const userId = userSnapshot.docs[0].id; // Extract Firebase user ID
-
-
-        // Create the new flight booking object
+        const userId = userSnapshot.docs[0].id;
         const newFlightBooking = {
             userId,
             selectedFlight,
             passengerDetails,
             bookedAt: new Date().toISOString(),
-            status: "confirmed", // Simulated status
+            status: "confirmed",
             confirmationCode: `TRVL-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
         };
 
-        // ✅ Store booking in Firestore
         const flightBookingRef = await db.collection("flightBookings").add(newFlightBooking);
 
         res.status(201).json({
@@ -115,7 +126,8 @@ router.post("/flights/book", async (req, res) => {
                 },
                 flight: {
                     number: selectedFlight.flight.number,
-                    iata: selectedFlight.flight.iata
+                    iata: selectedFlight.flight.iata,
+                    fullNumber: `${selectedFlight.airline.iata} ${selectedFlight.flight.number}`, // <-- Added formatted flight number
                 },
                 passengers: passengerDetails,
                 price: selectedFlight.priceDetails
@@ -126,7 +138,5 @@ router.post("/flights/book", async (req, res) => {
         res.status(500).json({ error: "Error booking flight" });
     }
 });
-
-
 
 export default router;
