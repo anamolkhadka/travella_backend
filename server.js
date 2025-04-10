@@ -8,9 +8,10 @@ import itineraryRoutes from './routes/itineraryRoutes.js';
 import travelUpdatesRoutes from './routes/travelUpdatesRoutes.js';
 import flightAlertRoutes from './routes/flightAlertRoutes.js';
 import authenticateUser from './middleware/authMiddleware.js';
-import bookingRoutes from './routes/bookingRoutes.js';
+import bookingRoutes from './routes/bookingroutes.js';
 import recommendRoutes from './routes/recommendRoutes.js';
 import hotelroutes from './routes/hotelroutes.js';
+import expenseTrackingRoutes from './routes/expenseTrackingRoutes.js';
 
 
 dotenv.config();
@@ -40,6 +41,7 @@ app.use('/travel-updates', travelUpdatesRoutes); // Travel and weather Updates R
 app.use('/api/booking', authenticateUser, bookingRoutes);
 app.use('/api/recommend', authenticateUser, recommendRoutes);
 app.use('/api/hotel', authenticateUser, hotelroutes);
+app.use('/api/expense', authenticateUser, expenseTrackingRoutes); // Expense Tracking Routes
 
 
 // Start Server
