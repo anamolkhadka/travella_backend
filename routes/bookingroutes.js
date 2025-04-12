@@ -1,55 +1,28 @@
-import pkg from "flights";
-const { searchFlights } = pkg;
 import express from "express";
-import axios from "axios";
 import dotenv from "dotenv";
-import { db } from "../db/firebase.js";
 import Amadeus from "amadeus";
+import { db } from "../db/firebase.js";
 
 dotenv.config();
 const router = express.Router();
-///const BOOKING_API_HOST = "booking-com15.p.rapidapi.com";
 
-// This endpoint is used to search for flights based on the provided parameters
-// Note the flights origin and destination are IATA codes.
-// Example: "LAX" for Los Angeles International Airport, "JFK" for John F. Kennedy International Airport
-// Link: http://www.iata.org/publications/Pages/code-search.aspx
+// Initialize Amadeus client
+const amadeus = new Amadeus({
+    clientId: process.env.AMADEUS_CLIENT_ID,
+    clientSecret: process.env.AMADEUS_CLIENT_SECRET,
+});
 
-// Utility functions
-const formatFlightNumber = (carrierCode, number) => `${carrierCode} ${number}`;
-
-const formatResponse = (data, pagination = {}) => {
-    return {
-        pagination: {
-            limit: pagination.limit || data.length,
-            offset: pagination.offset || 0,
-            count: data.length,
-            total: pagination.total || data.length,
-            ...pagination
-        },
-        data
-    };
-};
-
-const validatePassengerDetails = (details) => {
-    const requiredFields = ['firstName', 'lastName', 'dateOfBirth', 'gender'];
-    return requiredFields.every(field => details[field]);
-};
-
-
+// =======================
+// GET /flights/search
+// =======================
 router.get("/flights/search", async (req, res) => {
+    const { origin, destination, departureDate, adults = 1 } = req.query;
+
+    if (!origin || !destination || !departureDate) {
+        return res.status(400).json({ error: "Missing required parameters: origin, destination, or departureDate." });
+    }
+
     try {
-        const { origin, destination, departureDate, adults } = req.query;
-
-        if (!origin || !destination || !departureDate || !adults) {
-            return res.status(400).json({ error: "Missing required query parameters" });
-        }
-
-        const amadeus = new Amadeus({
-            clientId: process.env.AMADEUS_CLIENT_ID,
-            clientSecret: process.env.AMADEUS_CLIENT_SECRET,
-        });
-
         const response = await amadeus.shopping.flightOffersSearch.get({
             originLocationCode: origin,
             destinationLocationCode: destination,
@@ -57,152 +30,148 @@ router.get("/flights/search", async (req, res) => {
             adults,
         });
 
-        if (!response.result || !response.result.data) {
-            return res.status(500).json({ error: "Invalid response from Amadeus API" });
-        }
+        const flights = response?.result?.data || [];
 
-        // Process flight offers to include formatted flight numbers
-        const processedData = response.result.data.map(offer => {
-            const itineraries = offer.itineraries.map(itinerary => {
-                const segments = itinerary.segments.map(segment => ({
-                    ...segment,
-                    flightNumber: formatFlightNumber(segment.carrierCode, segment.number),
-                }));
-                return {
-                    ...itinerary,
-                    segments,
-                };
-            });
+        const formatted = flights.map(flight => {
+            const airlineCode = flight.validatingAirlineCodes?.[0] ||
+                flight.itineraries?.[0]?.segments?.[0]?.carrierCode || "N/A";
 
             return {
-                ...offer,
-                itineraries,
-                formattedPrice: {
-                    ...offer.price,
-                    formattedTotal: `${offer.price.currency} ${offer.price.total}`
+                id: flight.id,
+                itineraries: flight.itineraries,
+                price: flight.price,
+                validatingAirline: airlineCode,
+                numberOfBookableSeats: flight.numberOfBookableSeats,
+                airline: {
+                    iata: airlineCode,
+                    name: "Unknown" // optionally map later
                 }
             };
         });
 
-        res.status(200).json(formatResponse(
-            processedData,
-            {
-                limit: 100,
-                total: response.result.meta?.count || processedData.length
-            }
-        ));
-
-    } catch (error) {
-        console.error("❌ Error fetching flight offers:", error.response?.data || error.message);
-        const status = error.response?.status || 500;
-        const message = error.response?.data?.message || "Failed to fetch flight offers";
-        res.status(status).json({
-            error: message,
-            details: status === 500 ? undefined : error.response?.data?.errors
+        res.json({
+            count: formatted.length,
+            data: formatted
         });
+    } catch (err) {
+        console.error("Flight Search Error:", err);
+        res.status(500).json({ error: "Flight search failed." });
     }
 });
 
-// This endpoint is used to book a flight based on the provided parameters.
+// =======================
+// POST /flights/book
+// =======================
 router.post("/flights/book", async (req, res) => {
+    const { email, selectedFlight, passengerDetails } = req.body;
+
+    if (!email || !selectedFlight || !passengerDetails) {
+        return res.status(400).json({ error: "Missing email, selected flight, or passenger details." });
+    }
+
     try {
-        const { email, selectedFlight, passengerDetails } = req.body;
-
-        if (!email || !selectedFlight || !passengerDetails) {
-            return res.status(400).json({
-                error: "Missing required booking details",
-                required: ["email", "selectedFlight", "passengerDetails"]
-            });
-        }
-
-        if (!validatePassengerDetails(passengerDetails)) {
-            return res.status(400).json({
-                error: "Invalid passenger details",
-                requiredFields: ['firstName', 'lastName', 'dateOfBirth', 'gender']
-            });
-        }
-
         const userSnapshot = await db.collection("users").where("email", "==", email).get();
-        if (userSnapshot.empty) {
-            return res.status(404).json({ error: "User not found" });
-        }
+        if (userSnapshot.empty) return res.status(404).json({ error: "User not found." });
 
         const userId = userSnapshot.docs[0].id;
         const confirmationCode = `TRVL-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        const bookedAt = new Date().toISOString();
+        const itinerary = selectedFlight.itineraries?.[0];
+        const firstSegment = itinerary?.segments?.[0];
 
-        const newFlightBooking = {
-            userId,
-            selectedFlight: {
-                ...selectedFlight,
-                formattedFlightNumber: formatFlightNumber(
-                    selectedFlight.airline.iata,
-                    selectedFlight.flight.number
-                )
+        const airlineCode = selectedFlight.validatingAirlineCodes?.[0] || firstSegment?.carrierCode || "N/A";
+
+        const flightInfo = {
+            airline: {
+                iata: airlineCode,
+                name: airlineCode
             },
-            passengerDetails,
-            bookedAt: new Date().toISOString(),
-            status: "confirmed",
-            confirmationCode,
-        };
-
-        const flightBookingRef = await db.collection("flightBookings").add(newFlightBooking);
-
-        // Enhanced booking response
-        const bookingResponse = {
-            booking_id: flightBookingRef.id,
-            flight_date: selectedFlight.departureDate,
-            flight_status: "confirmed",
-            confirmation_code: confirmationCode,
+            flightNumber: `${airlineCode} ${firstSegment?.number}`,
+            duration: itinerary?.duration || "N/A",
             departure: {
-                airport: selectedFlight.departure.airport,
-                iata: selectedFlight.departure.iata,
-                scheduled: selectedFlight.departure.scheduled
+                airport: firstSegment?.departure?.iataCode || "N/A",
+                time: firstSegment?.departure?.at || "N/A",
+                terminal: firstSegment?.departure?.terminal || "N/A"
             },
             arrival: {
-                airport: selectedFlight.arrival.airport,
-                iata: selectedFlight.arrival.iata,
-                scheduled: selectedFlight.arrival.scheduled
+                airport: firstSegment?.arrival?.iataCode || "N/A",
+                time: firstSegment?.arrival?.at || "N/A",
+                terminal: firstSegment?.arrival?.terminal || "N/A"
             },
-            airline: {
-                name: selectedFlight.airline.name,
-                iata: selectedFlight.airline.iata
-            },
-            flight: {
-                number: selectedFlight.flight.number,
-                iata: selectedFlight.flight.iata,
-                fullNumber: formatFlightNumber(
-                    selectedFlight.airline.iata,
-                    selectedFlight.flight.number
-                ),
-            },
-            itinerary: selectedFlight.itineraries?.map(it => ({
-                duration: it.duration,
-                segments: it.segments?.map(seg => ({
-                    departure: seg.departure,
-                    arrival: seg.arrival,
-                    carrier: seg.carrierCode,
-                    flightNumber: seg.flightNumber,
-                    duration: seg.duration
-                }))
+            aircraft: firstSegment?.aircraft?.code || "N/A",
+            segments: itinerary?.segments?.map(seg => ({
+                departure: {
+                    airport: seg.departure.iataCode,
+                    time: seg.departure.at
+                },
+                arrival: {
+                    airport: seg.arrival.iataCode,
+                    time: seg.arrival.at
+                },
+                duration: seg.duration,
+                flightNumber: `${seg.carrierCode} ${seg.number}`,
+                aircraft: seg.aircraft?.code || "N/A"
             })) || [],
-            passengers: passengerDetails,
-            price: selectedFlight.priceDetails,
-            amenities: selectedFlight.travelerPricings?.[0]?.fareDetailsBySegment?.[0]?.amenities || []
+            price: {
+                total: selectedFlight.price.total,
+                base: selectedFlight.price.base,
+                taxes: (parseFloat(selectedFlight.price.total) - parseFloat(selectedFlight.price.base)).toFixed(2),
+                currency: selectedFlight.price.currency
+            }
         };
 
-        res.status(201).json(formatResponse(
-            bookingResponse,
-            { limit: 1, total: 1 }
-        ));
+        const bookingData = {
+            userId,
+            userEmail: email,
+            confirmationCode,
+            bookedAt,
+            status: "confirmed",
+            flightInfo,
+            passengerDetails
+        };
+
+        const bookingRef = await db.collection("flightBookings").add(bookingData);
+
+        res.status(201).json({
+            success: true,
+            bookingId: bookingRef.id,
+            confirmationCode,
+            flightInfo,
+            passengerDetails,
+            bookedAt
+        });
 
     } catch (error) {
-        console.error("❌ Error booking flight:", error);
-        const status = error.response?.status || 500;
-        const message = error.response?.data?.message || "Error booking flight";
-        res.status(status).json({
-            error: message,
-            details: status === 500 ? undefined : error.response?.data?.errors
-        });
+        console.error("Flight Booking Error:", error);
+        res.status(500).json({ error: "Booking failed." });
     }
 });
+
+// ==============================
+// GET /flights/bookings/:userId
+// ==============================
+router.get("/flights/bookings/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const snapshot = await db
+            .collection("flightBookings")
+            .where("userId", "==", userId)
+            .orderBy("bookedAt", "desc")
+            .get();
+
+        if (snapshot.empty) return res.status(200).json([]);
+
+        const bookings = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        res.status(200).json(bookings);
+    } catch (err) {
+        console.error("Error fetching flight bookings:", err);
+        res.status(500).json({ error: "Failed to fetch flight bookings." });
+    }
+});
+
 export default router;
