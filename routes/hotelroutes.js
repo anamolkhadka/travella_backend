@@ -6,6 +6,7 @@ dotenv.config();
 
 const router = express.Router();
 const TRIPADVISOR_API_HOST = "tripadvisor16.p.rapidapi.com";
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
 // Hotel Search using TripAdvisor API
 // This endpoint searches for hotels based on location and dates
@@ -59,18 +60,47 @@ router.get("/hotels/search", async (req, res) => {
                 },
             }
         );
+        // Transform results and enhance with Google Places if needed
+        const hotels = await Promise.all(
+            hotelsResponse.data?.data?.data?.map(async (hotel) => {
+                let enhancedInfo = {
+                    id: hotel.id,
+                    name: hotel.title,
+                    price: hotel.priceForDisplay || "Price unavailable",
+                    address: hotel.primaryInfo || "Address not available",
+                    image: hotel.cardPhotos?.[0]?.sizes?.urlTemplate?.replace("{width}", "600") || null,
+                    rating: hotel.bubbleRating?.rating || 0,
+                    reviews: hotel.bubbleRating?.number || "0",
+                    url: hotel.commerceInfo?.externalUrl || null,
+                };
 
-        // Transform results
-        const hotels = hotelsResponse.data?.data?.data?.map((hotel) => ({
-            id: hotel.id,
-            name: hotel.title,
-            price: hotel.priceForDisplay || "Price unavailable",
-            address: hotel.primaryInfo || "Address not available",
-            image: hotel.cardPhotos?.[0]?.sizes?.urlTemplate?.replace("{width}", "600") || null,
-            rating: hotel.bubbleRating?.rating || 0,
-            reviews: hotel.bubbleRating?.number || "0",
-            url: hotel.commerceInfo?.externalUrl || null,
-        })) || [];
+                // If address is missing or incomplete, try to get it from Google Places
+                if (!enhancedInfo.address || enhancedInfo.address === "Address not available") {
+                    try {
+                        const placesResponse = await axios.get(
+                            "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
+                            {
+                                params: {
+                                    input: `${enhancedInfo.name}, ${location}`,
+                                    inputtype: "textquery",
+                                    fields: "formatted_address",
+                                    key: GOOGLE_PLACES_API_KEY,
+                                },
+                            }
+                        );
+
+                        if (placesResponse.data?.candidates?.[0]?.formatted_address) {
+                            enhancedInfo.address = placesResponse.data.candidates[0].formatted_address;
+                        }
+                    } catch (error) {
+                        console.error("Google Places API error:", error.message);
+                        // Continue with original address if Google Places fails
+                    }
+                }
+
+                return enhancedInfo;
+            }) || []
+        );
 
         if (hotels.length === 0) {
             return res.status(404).json({
@@ -147,6 +177,16 @@ router.post("/hotels/book", async (req, res) => {
         // 4. Save to Firestore
         const bookingRef = await db.collection("hotelBookings").add(bookingData);
 
+        // 5. Add to expenses collection for tracking
+        const expenseData = {
+            userId,
+            amount: selectedHotel.price,
+            category: "Hotel",
+            vendor: selectedHotel.name,
+            date: new Date().toISOString().split("T")[0], // Format date as YYYY-MM-DD
+        };
+        await db.collection("expenses").add(expenseData);
+
         res.status(201).json({
             success: true,
             bookingId: bookingRef.id,
@@ -161,6 +201,33 @@ router.post("/hotels/book", async (req, res) => {
             error: "Failed to complete booking",
             details: error.message
         });
+    }
+});
+
+// Get all hotel bookings for a user
+router.get("/hotels/bookings/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const bookingsSnapshot = await db.collection("hotelBookings")
+            .where("userId", "==", userId)
+            .orderBy("createdAt", "desc")
+            .get();
+
+        if (bookingsSnapshot.empty) {
+            return res.status(200).json([]); // No bookings found
+        }
+
+        const bookings = bookingsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        res.status(200).json(bookings);
+
+    } catch (error) {
+        console.error("Error fetching hotel bookings:", error);
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 
