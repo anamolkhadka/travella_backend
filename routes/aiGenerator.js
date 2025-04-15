@@ -59,14 +59,19 @@ export const generateAIItinerary = async (preferences, destination, startDate, e
 
         // Extract AI response (which should be valid JSON)
         const itineraryData = response.data.choices[0]?.message?.content;
-        console.log(itineraryData);
+
+        /// console.log(itineraryData);
 
         // Handle JSON parsing errors and response truncation.
         const parsedData = handleResponse(itineraryData);
-        console.log(parsedData);
+
+        // Only log if not in test environment to avoid cluttering test output
+        if (process.env.NODE_ENV !== 'test') {
+            console.log(parsedData);
+        }
         
         if (parsedData) {
-            console.log("Parsed JSON:", parsedData);
+            ///console.log("Parsed JSON:", parsedData);
             return parsedData.itinerary.activities;
         } else {
             console.log("Failed to parse the response.");
