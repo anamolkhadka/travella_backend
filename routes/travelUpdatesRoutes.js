@@ -63,7 +63,7 @@ router.post('/flight', async (req, res) => {
         });
 
         const flights = response.data?.flights || [];
-        console.log(flights);
+        ///console.log(flights);
 
         if (!flights || flights.length === 0) {
             return res.status(404).json({ message: "No matching flights found for the given route." });

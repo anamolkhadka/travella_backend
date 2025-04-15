@@ -18,6 +18,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isTestEnv = process.env.NODE_ENV === 'test';
 
 // Middleware
 app.use(express.json()); // Parse JSON bodies
@@ -32,19 +33,24 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'], // Must include 'Authorization'
 }));
 
-// Routes
+// Routes. Use authenticateUser if not in test environment. Skip for test environment.
+const authenticate = isTestEnv ? (req, res, next) => next() : authenticateUser;
 app.use('/auth', authRoutes); // Authentication Routes
-app.use('/users', authenticateUser, userRoutes); // Protected User Routes
-app.use('/itinerary', authenticateUser, itineraryRoutes); // Protected Itinerary Routes
+app.use('/users', authenticate, userRoutes); // Protected User Routes
+app.use('/itinerary', authenticate, itineraryRoutes); // Protected Itinerary Routes
 app.use('/travel-updates', travelUpdatesRoutes); // Travel and weather Updates Routes
 ///app.use('/flight-alerts', authenticateUser, flightAlertRoutes); // Flight Alert Routes. Implemented but not used in the project because of the FlightAware API limitations.
-app.use('/api/booking', authenticateUser, bookingRoutes);
-app.use('/api/recommend', authenticateUser, recommendRoutes);
-app.use('/api/hotel', authenticateUser, hotelroutes);
-app.use('/api/expense', authenticateUser, expenseTrackingRoutes); // Expense Tracking Routes
+app.use('/api/booking', authenticate, bookingRoutes);
+app.use('/api/recommend', authenticate, recommendRoutes);
+app.use('/api/hotel', authenticate, hotelroutes);
+app.use('/api/expense', authenticate, expenseTrackingRoutes); // Expense Tracking Routes
 
+// Export the app for testing
+export default app;
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`🚀 Server is running on PORT ${PORT}`);
-});
+// Only start the server if this file is run directly (not imported)
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server is running on PORT ${PORT}`);
+    });
+}

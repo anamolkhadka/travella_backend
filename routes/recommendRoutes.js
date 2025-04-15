@@ -10,6 +10,12 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 // Fetch recommendations based on city/location
 router.get('/city/:location', async (req, res) => {
     const { location } = req.params;
+
+    // Validate location parameter
+    if (!location) {
+        return res.status(400).json({ error: 'Location is required' });
+    }
+    // Fetch recommendations using Google Places API
     try {
         const placesResponse = await axios.get('https://maps.googleapis.com/maps/api/place/textsearch/json', {
             params: {
@@ -27,6 +33,11 @@ router.get('/city/:location', async (req, res) => {
 router.post('/user-preferences', async (req, res) => {
     const { location, preferences } = req.body;// Example: "vegan restaurants and museums"
 
+    // Validate request body
+    if (!location || !preferences) {
+        return res.status(400).json({ error: 'Location and preferences are required' });
+    }
+    // Validate preferences format.
     // Convert preferences from an array to a comma-separated string
     const query = preferences ? preferences.replace(/\s*,\s*/g, ' and ') : '';
 
