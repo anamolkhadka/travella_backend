@@ -32,11 +32,19 @@ Travella is your AI-powered assistant for planning unforgettable journeys. From 
 - **UUID** for unique IDs
 - **Webhooks (FlightAware)**
 
+## ✅ Unit Testing
+- **Mocha** – Test runner framework
+- **Supertest** – For testing HTTP endpoints
+- **Chai** – Assertion library
+
 ## Setup Instructions
 - Clone the repository.
 - Create and env file with and update your API keys.
 - npm install (Install dependencies).
 - npm start (Start the application).
+
+### Run Tests:
+- npm test
 
 ## License
 
