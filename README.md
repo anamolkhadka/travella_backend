@@ -33,8 +33,10 @@ Travella is your AI-powered assistant for planning unforgettable journeys. From 
 - **Webhooks (FlightAware)**
 
 ## Setup Instructions
-- npm install (Install dependencies)
-- npm start (Start the application)
+- Clone the repository.
+- Create and env file with and update your API keys.
+- npm install (Install dependencies).
+- npm start (Start the application).
 
 ## License
 
