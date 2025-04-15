@@ -4,11 +4,13 @@ Travella is your AI-powered assistant for planning unforgettable journeys. From 
 
 ## 🌍 APIs & Integrations
 - **Amadeus API** for flights
-- **Firebase Firestore** for database
-- **Firebase Authentication**
+- **Trip Advisor API** for hotels
+- **Open AI API** for AI generated itinerary
 - **OpenWeather API** for weather updates
 - **FlightAware API** for flight status (via webhooks)
 - **Google Places API** for local recommendations
+- **Firebase Firestore** for database
+- **Firebase Authentication**
 
 ## 📸 Key Features
 - Flight & hotel search and booking
@@ -16,6 +18,7 @@ Travella is your AI-powered assistant for planning unforgettable journeys. From 
 - Expense creation and filtering
 - AI itinerary generation (ChatGPT)
 - Real-time travel alert webhooks
+- Local recommendations for travelers
 - Email confirmation handling
 - Session and token-based user authentication
 
